@@ -1,6 +1,11 @@
 import './style.css'
 
-// Function to parse CSV string into array of objects
+function normalizeDate(date) {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+}
+
 function parseCSV(csv) {
   const lines = csv.split('\n');
   const headers = lines[0].split(',').map(h => h.trim());
@@ -74,10 +79,10 @@ function getPhaseData(projectsData, phase) {
 }
 
 function doProjectsOverlap(project1, project2) {
-  const start1 = new Date(project1.startDate);
-  const end1 = new Date(project1.endDate);
-  const start2 = new Date(project2.startDate);
-  const end2 = new Date(project2.endDate);
+  const start1 = normalizeDate(project1.startDate);
+  const end1 = normalizeDate(project1.endDate);
+  const start2 = normalizeDate(project2.startDate);
+  const end2 = normalizeDate(project2.endDate);
   
   return start1 < end2 && start2 < end1;
 }
@@ -110,8 +115,8 @@ function getDateRange(projectsData) {
     ['design', 'estimating', 'production'].forEach(phase => {
       if (!project[phase]) return;
       
-      const startDate = new Date(project[phase].startDate);
-      const endDate = new Date(project[phase].endDate);
+      const startDate = normalizeDate(project[phase].startDate);
+      const endDate = normalizeDate(project[phase].endDate);
       
       if (!isNaN(startDate) && startDate < minDate) minDate = startDate;
       if (!isNaN(endDate) && endDate > maxDate) maxDate = endDate;
@@ -119,8 +124,8 @@ function getDateRange(projectsData) {
   });
 
   if (minDate > maxDate) {
-    minDate = new Date();
-    maxDate = new Date();
+    minDate = normalizeDate(new Date());
+    maxDate = normalizeDate(new Date());
     maxDate.setMonth(maxDate.getMonth() + 6);
   }
 
@@ -133,7 +138,7 @@ function getDateRange(projectsData) {
 
 function getMonthsBetweenDates(startDate, endDate) {
   const months = [];
-  const currentDate = new Date(startDate);
+  const currentDate = normalizeDate(startDate);
   
   while (currentDate < endDate) {
     const monthLabel = currentDate.toLocaleString('default', { month: 'short' });
@@ -153,7 +158,7 @@ function getMonthsBetweenDates(startDate, endDate) {
 
 function getWeekMarkers(startDate, endDate) {
   const markers = [];
-  const currentDate = new Date(startDate);
+  const currentDate = normalizeDate(startDate);
   
   while (currentDate.getDay() !== 1) {
     currentDate.setDate(currentDate.getDate() + 1);
@@ -176,7 +181,9 @@ function getWeekMarkers(startDate, endDate) {
 }
 
 function getDaysBetweenDates(startDate, endDate) {
-  return Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+  const start = normalizeDate(startDate);
+  const end = normalizeDate(endDate);
+  return Math.ceil((end - start) / (1000 * 60 * 60 * 24));
 }
 
 function createTimelineNavigation(chart, dateRange, updateView) {
@@ -224,13 +231,13 @@ function createGanttChart(projects, title, projectColors) {
   phaseTitle.className = 'phase-title';
   chart.appendChild(phaseTitle);
   
-  const now = new Date();
+  const now = normalizeDate(new Date());
   now.setDate(1);
   chart.viewStartDate = now;
   
   function updateView(newStartDate) {
-    chart.viewStartDate = newStartDate;
-    const viewEndDate = new Date(newStartDate);
+    chart.viewStartDate = normalizeDate(newStartDate);
+    const viewEndDate = normalizeDate(newStartDate);
     viewEndDate.setMonth(viewEndDate.getMonth() + 4);
     
     const months = getMonthsBetweenDates(newStartDate, viewEndDate);
@@ -267,13 +274,13 @@ function createGanttChart(projects, title, projectColors) {
       const staffMember = timeline.parentElement.querySelector('.staff-name').textContent;
       const staffProjects = projects
         .filter(p => p.owner === staffMember)
-        .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+        .sort((a, b) => normalizeDate(a.startDate) - normalizeDate(b.startDate));
       
       const placedProjects = [];
       
       staffProjects.forEach(project => {
-        const projectStart = new Date(project.startDate);
-        const projectEnd = new Date(project.endDate);
+        const projectStart = normalizeDate(project.startDate);
+        const projectEnd = normalizeDate(project.endDate);
         
         if (projectEnd < newStartDate || projectStart > viewEndDate) return;
         
@@ -354,7 +361,7 @@ function createProjectOverviewChart(projectsData) {
   const chart = document.createElement('div');
   chart.className = 'gantt-chart';
   
-  const now = new Date();
+  const now = normalizeDate(new Date());
   now.setDate(1);
   chart.viewStartDate = now;
   
@@ -364,8 +371,8 @@ function createProjectOverviewChart(projectsData) {
   chart.appendChild(phaseTitle);
   
   function updateView(newStartDate) {
-    chart.viewStartDate = newStartDate;
-    const viewEndDate = new Date(newStartDate);
+    chart.viewStartDate = normalizeDate(newStartDate);
+    const viewEndDate = normalizeDate(newStartDate);
     viewEndDate.setMonth(viewEndDate.getMonth() + 4);
     
     const totalDays = getDaysBetweenDates(newStartDate, viewEndDate);
@@ -407,8 +414,8 @@ function createProjectOverviewChart(projectsData) {
       ['design', 'estimating', 'production'].forEach(phase => {
         if (!projectData[phase]) return;
         
-        const phaseStart = new Date(projectData[phase].startDate);
-        const phaseEnd = new Date(projectData[phase].endDate);
+        const phaseStart = normalizeDate(projectData[phase].startDate);
+        const phaseEnd = normalizeDate(projectData[phase].endDate);
         
         if (phaseEnd < newStartDate || phaseStart > viewEndDate) return;
         
