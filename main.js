@@ -11,7 +11,6 @@ function parseCSV(csv) {
       name: values[0]
     };
 
-    // Only add phases that have a valid owner
     const phases = ['design', 'estimating', 'production'];
     const phaseIndices = {
       design: [1, 2, 3],
@@ -34,7 +33,6 @@ function parseCSV(csv) {
   });
 }
 
-// Function to fetch and process the Google Sheet data
 async function fetchProjectData() {
   const SHEET_ID = '1aKajaPbTyl0yzTMlu1QWhOdwCPIOypPhjc6jBCPQGds';
   const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
@@ -50,7 +48,6 @@ async function fetchProjectData() {
   }
 }
 
-// Extended color palette (30 distinct colors)
 const colors = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5',
   '#FF9F1C', '#2EC4B6', '#E71D36', '#011627', '#7DCEA0', '#E8C547',
@@ -59,7 +56,6 @@ const colors = [
   '#D5ECC2', '#FFD3B5', '#FFAAA7', '#FF8B94', '#A8D8EA', '#FF61A6'
 ];
 
-// Phase colors for the overview chart
 const phaseColors = {
   design: '#4A90E2',
   estimating: '#50C878',
@@ -68,7 +64,7 @@ const phaseColors = {
 
 function getPhaseData(projectsData, phase) {
   return projectsData
-    .filter(project => project[phase]) // Only include projects that have this phase
+    .filter(project => project[phase])
     .map(project => ({
       name: project.name,
       owner: project[phase].owner,
@@ -122,14 +118,12 @@ function getDateRange(projectsData) {
     });
   });
 
-  // If no valid dates were found, use default range
   if (minDate > maxDate) {
     minDate = new Date();
     maxDate = new Date();
     maxDate.setMonth(maxDate.getMonth() + 6);
   }
 
-  // Set dates to start of their respective months
   minDate.setDate(1);
   maxDate.setDate(1);
   maxDate.setMonth(maxDate.getMonth() + 1);
@@ -155,6 +149,30 @@ function getMonthsBetweenDates(startDate, endDate) {
   }
   
   return months;
+}
+
+function getWeekMarkers(startDate, endDate) {
+  const markers = [];
+  const currentDate = new Date(startDate);
+  
+  while (currentDate.getDay() !== 1) {
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  while (currentDate < endDate) {
+    const totalDays = getDaysBetweenDates(startDate, endDate);
+    const daysFromStart = getDaysBetweenDates(startDate, currentDate);
+    const position = (daysFromStart / totalDays) * 100;
+    
+    markers.push({
+      label: `${currentDate.getMonth() + 1}/${currentDate.getDate()}`,
+      position
+    });
+    
+    currentDate.setDate(currentDate.getDate() + 7);
+  }
+  
+  return markers;
 }
 
 function getDaysBetweenDates(startDate, endDate) {
@@ -206,9 +224,8 @@ function createGanttChart(projects, title, projectColors) {
   phaseTitle.className = 'phase-title';
   chart.appendChild(phaseTitle);
   
-  // Initialize view with current month
   const now = new Date();
-  now.setDate(1); // Set to start of month
+  now.setDate(1);
   chart.viewStartDate = now;
   
   function updateView(newStartDate) {
@@ -216,7 +233,6 @@ function createGanttChart(projects, title, projectColors) {
     const viewEndDate = new Date(newStartDate);
     viewEndDate.setMonth(viewEndDate.getMonth() + 4);
     
-    // Update timeline header
     const months = getMonthsBetweenDates(newStartDate, viewEndDate);
     timelineHeader.innerHTML = '';
     months.forEach(month => {
@@ -227,10 +243,27 @@ function createGanttChart(projects, title, projectColors) {
       timelineHeader.appendChild(monthDiv);
     });
     
-    // Update project bars
     const totalDays = getDaysBetweenDates(newStartDate, viewEndDate);
+    const weekMarkers = getWeekMarkers(newStartDate, viewEndDate);
+    
     chartContent.querySelectorAll('.timeline').forEach(timeline => {
       timeline.innerHTML = '';
+      
+      const markersContainer = document.createElement('div');
+      markersContainer.className = 'week-markers';
+      weekMarkers.forEach(marker => {
+        const markerDiv = document.createElement('div');
+        markerDiv.className = 'week-marker';
+        markerDiv.style.left = `${marker.position}%`;
+        markerDiv.textContent = marker.label;
+        markersContainer.appendChild(markerDiv);
+      });
+      timeline.appendChild(markersContainer);
+      
+      const timelineInner = document.createElement('div');
+      timelineInner.className = 'timeline-inner';
+      timeline.appendChild(timelineInner);
+      
       const staffMember = timeline.parentElement.querySelector('.staff-name').textContent;
       const staffProjects = projects
         .filter(p => p.owner === staffMember)
@@ -242,7 +275,6 @@ function createGanttChart(projects, title, projectColors) {
         const projectStart = new Date(project.startDate);
         const projectEnd = new Date(project.endDate);
         
-        // Skip if project is outside view range
         if (projectEnd < newStartDate || projectStart > viewEndDate) return;
         
         const position = findAvailablePosition(project, placedProjects);
@@ -256,7 +288,7 @@ function createGanttChart(projects, title, projectColors) {
         projectBar.style.left = left + '%';
         projectBar.style.width = width + '%';
         projectBar.style.backgroundColor = projectColors[project.name];
-        projectBar.style.top = (position * 24) + 'px'; // 20px height + 4px margin
+        projectBar.style.top = (position * 24) + 'px';
         
         projectBar.title = `${project.name}: ${project.startDate} to ${project.endDate}`;
         
@@ -265,12 +297,12 @@ function createGanttChart(projects, title, projectColors) {
         label.textContent = project.name;
         projectBar.appendChild(label);
         
-        timeline.appendChild(projectBar);
+        timelineInner.appendChild(projectBar);
       });
       
-      // Set timeline height based on number of projects
       const maxPosition = Math.max(...placedProjects.map(p => p.position), 0);
-      timeline.style.height = ((maxPosition + 1) * 24 + 8) + 'px'; // (number of rows * (height + margin)) + padding
+      timelineInner.style.height = ((maxPosition + 1) * 24 + 8) + 'px';
+      timeline.style.height = ((maxPosition + 1) * 24 + 32) + 'px';
     });
   }
   
@@ -310,7 +342,6 @@ function createGanttChart(projects, title, projectColors) {
   
   chart.appendChild(chartContent);
   
-  // Initialize the view
   updateView(chart.viewStartDate);
   
   return chart;
@@ -323,9 +354,8 @@ function createProjectOverviewChart(projectsData) {
   const chart = document.createElement('div');
   chart.className = 'gantt-chart';
   
-  // Initialize view with current month
   const now = new Date();
-  now.setDate(1); // Set to start of month
+  now.setDate(1);
   chart.viewStartDate = now;
   
   const phaseTitle = document.createElement('h2');
@@ -340,7 +370,6 @@ function createProjectOverviewChart(projectsData) {
     
     const totalDays = getDaysBetweenDates(newStartDate, viewEndDate);
     
-    // Update timeline header
     const months = getMonthsBetweenDates(newStartDate, viewEndDate);
     timelineHeader.innerHTML = '';
     months.forEach(month => {
@@ -351,21 +380,36 @@ function createProjectOverviewChart(projectsData) {
       timelineHeader.appendChild(monthDiv);
     });
     
-    // Update project bars
+    const weekMarkers = getWeekMarkers(newStartDate, viewEndDate);
+    
     chartContent.querySelectorAll('.timeline').forEach(timeline => {
       timeline.innerHTML = '';
+      
+      const markersContainer = document.createElement('div');
+      markersContainer.className = 'week-markers';
+      weekMarkers.forEach(marker => {
+        const markerDiv = document.createElement('div');
+        markerDiv.className = 'week-marker';
+        markerDiv.style.left = `${marker.position}%`;
+        markerDiv.textContent = marker.label;
+        markersContainer.appendChild(markerDiv);
+      });
+      timeline.appendChild(markersContainer);
+      
+      const timelineInner = document.createElement('div');
+      timelineInner.className = 'timeline-inner';
+      timeline.appendChild(timelineInner);
+      
       const projectName = timeline.parentElement.querySelector('.staff-name').textContent;
       const projectData = projectsData.find(p => p.name === projectName);
       
       let position = 0;
       ['design', 'estimating', 'production'].forEach(phase => {
-        // Skip if phase doesn't exist
         if (!projectData[phase]) return;
         
         const phaseStart = new Date(projectData[phase].startDate);
         const phaseEnd = new Date(projectData[phase].endDate);
         
-        // Skip if phase is outside view range
         if (phaseEnd < newStartDate || phaseStart > viewEndDate) return;
         
         const left = Math.max(((phaseStart - newStartDate) / (1000 * 60 * 60 * 24)) / totalDays * 100, 0);
@@ -376,7 +420,7 @@ function createProjectOverviewChart(projectsData) {
         phaseBar.style.left = left + '%';
         phaseBar.style.width = width + '%';
         phaseBar.style.backgroundColor = phaseColors[phase];
-        phaseBar.style.top = (position * 24) + 'px'; // 20px height + 4px margin
+        phaseBar.style.top = (position * 24) + 'px';
         
         phaseBar.title = `${phase}: ${projectData[phase].owner} (${projectData[phase].startDate} to ${projectData[phase].endDate})`;
         
@@ -385,13 +429,13 @@ function createProjectOverviewChart(projectsData) {
         label.textContent = projectData[phase].owner;
         phaseBar.appendChild(label);
         
-        timeline.appendChild(phaseBar);
+        timelineInner.appendChild(phaseBar);
         position++;
       });
       
-      // Set timeline height based on number of phases
-      const numPhases = timeline.children.length;
-      timeline.style.height = (numPhases * 24 + 8) + 'px'; // (number of phases * (height + margin)) + padding
+      const numPhases = timelineInner.querySelectorAll('.project-bar').length;
+      timelineInner.style.height = (numPhases * 24 + 8) + 'px';
+      timeline.style.height = (numPhases * 24 + 32) + 'px';
     });
   }
   
@@ -431,13 +475,11 @@ function createProjectOverviewChart(projectsData) {
   
   chart.appendChild(chartContent);
   
-  // Initialize the view
   updateView(chart.viewStartDate);
   
   return chart;
 }
 
-// Initialize the app
 document.querySelector('#app').innerHTML = `
   <div class="container">
     <h1>DRD Project Timelines</h1>
@@ -453,24 +495,19 @@ const phases = [
   { name: 'production', title: 'Production Phase' }
 ];
 
-// Fetch data and create charts
 fetchProjectData().then(projectsData => {
-  // Add the overview chart first
   container.appendChild(createProjectOverviewChart(projectsData));
   
-  // Get all unique project names across all phases
   const allProjects = new Set();
   projectsData.forEach(project => {
     allProjects.add(project.name);
   });
   
-  // Assign a unique color to each project
   const projectColors = {};
   Array.from(allProjects).forEach((projectName, index) => {
     projectColors[projectName] = colors[index % colors.length];
   });
   
-  // Add the phase-specific charts
   phases.forEach(phase => {
     const phaseData = getPhaseData(projectsData, phase.name);
     container.appendChild(createGanttChart(phaseData, phase.title, projectColors));
